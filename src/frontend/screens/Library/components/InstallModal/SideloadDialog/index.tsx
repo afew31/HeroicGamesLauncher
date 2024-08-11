@@ -49,7 +49,7 @@ export default function SideloadDialog({
   children,
   appName
 }: Props) {
-  const { t } = useTranslation('gamepage')
+  const { t, i18n } = useTranslation('gamepage')
   const [title, setTitle] = useState<string | never>(
     t('sideload.field.title', 'Title')
   )
@@ -300,7 +300,7 @@ export default function SideloadDialog({
               )}
             >
               <div className="sideloadImportHint">
-                <Trans key="sideload.import-hint.content">
+                <Trans i18n={i18n} key="sideload.import-hint.content">
                   Do NOT use this feature for that.
                   <br />
                   Instead, <NavLink to={'/login'}>log into</NavLink> the store,
