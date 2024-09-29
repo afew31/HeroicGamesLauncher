@@ -153,7 +153,6 @@ export async function launchGame(
   const { launcherArgs } = gameSettings
   const extraArgs = shlex.split(launcherArgs ?? '')
   const extraArgsJoined = extraArgs.join(' ')
-  const logPath = lastPlayLogFileLocation(appName)
 
   if (executable) {
     const isNative = gameManagerMap[runner].isNative(appName)
@@ -191,6 +190,11 @@ export async function launchGame(
       return false
     }
 
+    appendGamePlayLog(
+      gameInfo,
+      `Launch Command: ${executable} ${launcherArgs ?? ''}\n`
+    )
+
     sendGameStatusUpdate({
       appName,
       runner,
@@ -213,29 +217,33 @@ export async function launchGame(
       }
 
       const env = {
+        ...process.env,
         ...setupWrapperEnvVars({ appName, appRunner: runner }),
         ...setupEnvVars(gameSettings, gameInfo.install.install_path)
       }
+      const envJoined = Object.entries(env)
+        .map(([key, value]) => `${key}=${value}`)
+        .sort()
+        .join(' ')
 
-      if (wrappers.length > 0) {
-        extraArgs.unshift(...wrappers, executable)
-        executable = extraArgs.shift()!
-      }
+      logInfo(
+        `launching native sideloaded game: ${envJoined} ${executable} ${extraArgsJoined}`,
+        LogPrefix.Backend
+      )
 
       await callRunner(
         extraArgs,
         {
           name: runner,
-          logPrefix: LogPrefix.Sideload,
+          logPrefix: LogPrefix.Backend,
           bin: basename(executable),
           dir: dirname(executable)
         },
         {
           env,
           wrappers,
-          gameInfo,
-          logFile: logPath,
-          logMessagePrefix: LogPrefix.Sideload,
+          logFile: lastPlayLogFileLocation(appName),
+          logMessagePrefix: LogPrefix.Backend,
           onOutput: (output) => {
             if (!logsDisabled) appendGamePlayLog(gameInfo, output)
           }
@@ -263,9 +271,8 @@ export async function launchGame(
       startFolder: dirname(executable),
       options: {
         wrappers,
-        gameInfo,
-        logFile: logPath,
-        logMessagePrefix: LogPrefix.Sideload,
+        logFile: lastPlayLogFileLocation(appName),
+        logMessagePrefix: LogPrefix.Backend,
         onOutput: (output) => {
           if (!logsDisabled) appendGamePlayLog(gameInfo, output)
         }

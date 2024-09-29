@@ -903,26 +903,17 @@ async function runWineCommand({
     return { stdout: '', stderr: '' }
   }
 
-  const env_vars_display = {
+  const env_vars = {
+    ...process.env,
     GAMEID: 'umu-0',
     ...setupEnvVars(settings),
     ...setupWineEnvVars(settings, installFolderName),
     PROTON_VERB: protonVerb
   }
 
-  const env_vars = {
-    ...process.env,
-    ...env_vars_display
-  }
-
   if (ignoreLogging) {
     delete env_vars['PROTON_LOG']
   }
-
-  const envJoined = Object.entries(env_vars_display)
-    .map(([key, value]) => `${key}=${value}`)
-    .sort()
-    .join(' ')
 
   const wineBin = wineVersion.bin.replaceAll("'", '')
   const umuSupported = await isUmuSupported(wineVersion.type)
@@ -959,15 +950,6 @@ async function runWineCommand({
         appendFileLog(
           options.logFile,
           `Wine Command: ${bin} ${commandParts.join(' ')}\n\nGame Log:\n`
-        )
-      }
-
-      if (options?.gameInfo) {
-        appendGamePlayLog(
-          options?.gameInfo,
-          `Launch Command: ${envJoined} ${bin} ${commandParts.join(
-            ' '
-          )}\n\nGame Log:\n`
         )
       }
     }
@@ -1087,9 +1069,8 @@ async function callRunner(
   runner: RunnerProps,
   options?: CallRunnerOptions
 ): Promise<ExecResult> {
-  const appName =
-    options?.gameInfo?.app_name ||
-    appNameFromCommandParts(commandParts, runner.name)
+  const appName = appNameFromCommandParts(commandParts, runner.name)
+  const wrappers = options?.wrappers || []
 
   // Necessary to get rid of possible undefined or null entries, else
   // TypeError is triggered
@@ -1101,6 +1082,11 @@ async function callRunner(
   // macOS/Linux: `spawn`ing an executable in the current working directory
   // requires a "./"
   if (!isWindows) bin = './' + bin
+
+  if (runner.name === 'sideload' && wrappers.length > 0) {
+    commandParts.unshift(...wrappers, fullRunnerPath)
+    fullRunnerPath = bin = commandParts.shift()!
+  }
 
   // On Windows: Use PowerShell's `Start-Process` to wait for the process and
   // its children to exit, provided PowerShell is available
@@ -1146,12 +1132,6 @@ async function callRunner(
         `[${new Date().toLocaleString()}] ${safeCommand}\n`
       )
     }
-
-    if (options?.gameInfo)
-      appendGamePlayLog(
-        options?.gameInfo,
-        `Launch Command: ${safeCommand}\n\nGame Log:\n`
-      )
 
     if (options?.logFile) {
       if (appName) {
@@ -1504,6 +1484,7 @@ export {
   setupWrappers,
   runWineCommand,
   callRunner,
+  getRunnerCallWithoutCredentials,
   getWinePath,
   runAfterLaunchScript,
   runBeforeLaunchScript

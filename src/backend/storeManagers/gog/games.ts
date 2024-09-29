@@ -17,6 +17,7 @@ import { GlobalConfig } from '../../config'
 import {
   errorHandler,
   getFileSize,
+  getGOGdlBin,
   spawnAsync,
   moveOnUnix,
   moveOnWindows,
@@ -67,6 +68,7 @@ import {
 } from '../../logger/logger'
 import { GOGUser } from './user'
 import {
+  getRunnerCallWithoutCredentials,
   getWinePath,
   launchCleanup,
   prepareLaunch,
@@ -685,6 +687,13 @@ export async function launch(
     }
   }
 
+  const fullCommand = getRunnerCallWithoutCredentials(
+    commandParts,
+    commandEnv,
+    join(...Object.values(getGOGdlBin()))
+  )
+  appendGamePlayLog(gameInfo, `Launch Command: ${fullCommand}\n\nGame Log:\n`)
+
   const userData: UserData | undefined = configStore.get_nodefault('userData')
 
   sendGameStatusUpdate({ appName, runner: 'gog', status: 'playing' })
@@ -717,7 +726,6 @@ export async function launch(
     abortId: appName,
     env: commandEnv,
     wrappers,
-    gameInfo,
     logMessagePrefix: `Launching ${gameInfo.title}`,
     onOutput: (output: string) => {
       if (!logsDisabled) appendGamePlayLog(gameInfo, output)
