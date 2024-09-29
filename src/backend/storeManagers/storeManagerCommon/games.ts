@@ -217,19 +217,14 @@ export async function launchGame(
       }
 
       const env = {
-        ...process.env,
         ...setupWrapperEnvVars({ appName, appRunner: runner }),
         ...setupEnvVars(gameSettings, gameInfo.install.install_path)
       }
-      const envJoined = Object.entries(env)
-        .map(([key, value]) => `${key}=${value}`)
-        .sort()
-        .join(' ')
 
-      logInfo(
-        `launching native sideloaded game: ${envJoined} ${executable} ${extraArgsJoined}`,
-        LogPrefix.Backend
-      )
+      if (wrappers.length > 0) {
+        extraArgs.unshift(...wrappers, executable)
+        executable = extraArgs.shift()!
+      }
 
       await callRunner(
         extraArgs,
