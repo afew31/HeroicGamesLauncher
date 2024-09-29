@@ -15,11 +15,13 @@ import { constants as FS_CONSTANTS } from 'graceful-fs'
 import i18next from 'i18next'
 import {
   callRunner,
+  getRunnerCallWithoutCredentials,
   launchCleanup,
   prepareLaunch,
   prepareWineLaunch,
   runWineCommand,
   setupEnvVars,
+  setupWineEnvVars,
   setupWrapperEnvVars,
   setupWrappers
 } from '../../launcher'
@@ -190,11 +192,6 @@ export async function launchGame(
       return false
     }
 
-    appendGamePlayLog(
-      gameInfo,
-      `Launch Command: ${executable} ${launcherArgs ?? ''}\n`
-    )
-
     sendGameStatusUpdate({
       appName,
       runner,
@@ -226,6 +223,16 @@ export async function launchGame(
         executable = extraArgs.shift()!
       }
 
+      const fullCommand = getRunnerCallWithoutCredentials(
+        extraArgs,
+        env,
+        executable
+      )
+      appendGamePlayLog(
+        gameInfo,
+        `Launch Command: ${fullCommand}\n\nGame Log:\n`
+      )
+
       await callRunner(
         extraArgs,
         {
@@ -237,6 +244,7 @@ export async function launchGame(
         {
           env,
           wrappers,
+          app_name: appName,
           logFile: lastPlayLogFileLocation(appName),
           logMessagePrefix: LogPrefix.Backend,
           onOutput: (output) => {
@@ -258,6 +266,27 @@ export async function launchGame(
       LogPrefix.Backend
     )
 
+    const logCommand = [
+      ...wrappers,
+      gameSettings.wineVersion.bin,
+      executable,
+      ...extraArgs
+    ]
+    const logExec = logCommand.shift()!
+
+    const fullCommand = getRunnerCallWithoutCredentials(
+      logCommand,
+      {
+        GAMEID: 'umu-0',
+        ...setupEnvVars(gameSettings, gameInfo.install.install_path),
+        ...setupWineEnvVars(gameSettings, dirname(executable)),
+        PROTON_VERB: 'waitforexitandrun'
+      },
+      logExec
+    )
+
+    appendGamePlayLog(gameInfo, `Launch Command: ${fullCommand}\n\nGame Log:\n`)
+
     await runWineCommand({
       commandParts: [executable, ...extraArgs],
       gameSettings,
@@ -266,6 +295,7 @@ export async function launchGame(
       startFolder: dirname(executable),
       options: {
         wrappers,
+        app_name: appName,
         logFile: lastPlayLogFileLocation(appName),
         logMessagePrefix: LogPrefix.Backend,
         onOutput: (output) => {
